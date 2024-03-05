@@ -8,29 +8,68 @@ import math
 import random
 import Organism as Org
 import matplotlib.pyplot as plt
+import numpy as np
 
 """
 crossover operation for genetic algorithm
+
+INPUTS:
+parent1: first parent
+parent2 : second parent
+
+
+OUTPUTS:
+genome1: genome for first child
+genome2: second for second child
+
+This funciton creates two genomes from parents and returns them
 """
 def crossover(parent1, parent2):
-    return (child1, child2)
+    # create a random index k to split into parents' genomes
+    k = round(random.random() * len(parent1.bits))
+
+    # generate two children's genomes combining parents' genomes
+    genome1 = np.hstack((parent1.bits[0:k], parent2.bits[k:]))
+    genome2 = np.hstack((parent2.bits[0:k], parent1.bits[k:]))
+
+    return (genome1, genome2)
 
 """
 mutation operation for genetic algorithm
 """
 def mutation(genome, mutRate):
+    # iterate through every bit in genome
+    for bit in genome:
+        # flip it with probability of mutRate
+        if (random.random() < mutRate):
+            bit = 1 - bit
+
     return genome
 
 """
 selection operation for choosing a parent for mating from the population
 """
 def selection(pop):
-    return org
+    # select a random number
+    rand = random.random()
+
+    # find the first organism with accumulated fitness larger than random number
+    for org in pop:
+        if org.accFit > rand:
+            return org
+    
+    # if did not find such an organis, return the last organism in population
+    return pop[-1]
 
 """
 calcFit will calculate the fitness of an organism
 """
 def calcFit(org, xVals, yVals):
+    # # I believe this would be a way to make the algorithm more efficient
+    # #if fitness for this organism was already calculated, just return it
+    # if org.fitness != 0:
+    #     return org.fitness
+    
     # Create a variable to store the running sum error.
     error = 0
 
@@ -70,6 +109,28 @@ def calcFit(org, xVals, yVals):
 accPop will calculate the fitness and accFit of the population
 """
 def accPop(pop, xVals, yVals):
+    # create a totalfit variable used later to normalize individual fitness values
+    totalfit = 0.
+
+    # calculate fitness for each organism in the population, increment totalfit
+    for org in pop:
+        thisfitness = calcFit(org, xVals, yVals)
+        org.fitness = thisfitness
+        totalfit += thisfitness
+
+    # sort the
+    # population by descending fitness values
+    pop.sort(reverse=True)
+
+    # create a variable to keep track of accumulated fitness so far
+    accumulated = 0.
+
+    #for each organism, calculate normalized fitness and accumulated fitness
+    for org in pop:
+        org.normFit = org.fitness / totalfit
+        accumulated += org.normFit
+        org.accFit = accumulated
+
     return pop
 
 """
@@ -104,6 +165,35 @@ def initPop(size, numCoeffs):
 nextGeneration will create the next generation
 """
 def nextGeneration(pop, numCoeffs, mutRate, eliteNum):
+    # create a new population variable
+    newPop = []
+
+    # perform matings to create children and form the new pop
+    for i in range((len(pop)-eliteNum)//2):
+
+        # select two parents
+        parent1 = selection(pop)
+        parent2 = selection(pop)
+
+        # generate two new genomes from parents
+        (genome1, genome2) = crossover(parent1, parent2)
+
+        # mutate the two genomes
+        genome1 = mutation(genome1, mutRate)
+        genome2 = mutation(genome2, mutRate)
+
+        # create two children using two new genomes
+        child1 = Org.Organism(numCoeffs, genome1)
+        child2 = Org.Organism(numCoeffs, genome2)
+
+        # add new children to the new population
+        newPop.append(child1)
+        newPop.append(child2)
+
+    # copy the elite into the new population
+    for i in range(eliteNum):
+        newPop.append(pop[i])
+
     return newPop
 
 """
@@ -125,6 +215,59 @@ best: the bestN number of best organisms seen over the course of the GA
 fit:  the highest observed fitness value for each iteration
 """
 def GA(k, size, numCoeffs, mutRate, xVals, yVals, eliteNum, bestN):
+    # create initial population and sort it by fitness
+    pop = initPop(size, numCoeffs)
+    pop = accPop(pop, xVals, yVals)
+
+    # initialize and populate the list of best organisms
+    best = []
+    for ind in range(bestN):
+        best.append(pop[ind])
+
+    #initialize the list of highest fitness for each generation
+    fit = []
+    #record the highest fitness for the initial generation
+    fit.append(pop[0].fitness)
+
+    # keep creating generations and repeating the steps
+    for generation in range(k):
+        print(generation) # debugging
+        # create new population and sort it by fitness
+        newPop = nextGeneration(pop, numCoeffs, mutRate, eliteNum)
+        newPop = accPop(newPop, xVals, yVals)
+
+
+        # update the list of best organisms
+        #for the first N organisms 
+        for ind in range(bestN):
+            #record the organism in new population
+            thisOrg = newPop[ind]
+
+            # assume it is not recorded in the list of best organisms
+            recorded = False
+
+            #check if it is, comparing it to all orgs in the list of best
+            for bestOrg in best:
+                if (thisOrg.isClone(bestOrg)):
+                    recorded = True
+
+            # if not recorded, add it to the list of best
+            if (not recorded):
+                best.append(thisOrg)
+
+        #sort the list of best organisms
+        best.sort(reverse=True)
+            
+        # truncate the list of best to only keep N organisms
+        best = best[0:bestN] 
+
+
+        # record the highest fitness for this generation
+        fit.append(newPop[0].fitness)
+
+        # update current population
+        pop = newPop
+    
     return (best,fit)
 
 """
@@ -166,10 +309,10 @@ if __name__ == '__main__':
 
     # Flags to suppress any given scenario. Simply set to False and that
     # scenario will be skipped. Set to True to enable a scenario.
-    scenA = False
-    scenB = False
-    scenC = False
-    scenD = False
+    scenA = True
+    scenB = True
+    scenC = True
+    scenD = True
 
     if not (scenA or scenB or scenC or scenD):
         print("All scenarios disabled. Set a flag to True to run a scenario.")
@@ -204,6 +347,8 @@ if __name__ == '__main__':
         for org in best:
             print(org)
             print()
+            print()
+            print()
 
 ################################################################################
     ### Scenario B: Fitting to a constant function, y = 5. ###
@@ -234,6 +379,8 @@ if __name__ == '__main__':
         print('Best individuals of Scenario '+ sc +':')
         for org in best:
             print(org)
+            print()
+            print()
             print()
 
 ################################################################################
@@ -266,6 +413,8 @@ if __name__ == '__main__':
         for org in best:
             print(org)
             print()
+            print()
+            print()
 
 ################################################################################
     ### Scenario D: Fitting to a quadratic function, y = cos(x). ###
@@ -296,4 +445,6 @@ if __name__ == '__main__':
         print('Best individuals of Scenario '+ sc +':')
         for org in best:
             print(org)
+            print()
+            print()
             print()
