@@ -1,7 +1,7 @@
 """
 hw3.py
-Name(s):
-Date:
+Name: Timur Kasimov
+Date: March 5, 2024
 """
 
 import math
